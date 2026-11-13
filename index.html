@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="nb">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Kaffeloggen</title>
+  <meta name="description" content="Loggfør, ranger og husk alle kaffebønnene du har smakt.">
+  <meta name="theme-color" content="#f6efe6">
+  <meta name="color-scheme" content="light dark">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Kaffeloggen">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="css/app.css">
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <main id="view" class="view"></main>
+
+  <nav class="tabbar" aria-label="Hovedmeny">
+    <a href="#/" data-tab="home">
+      <svg class="ic" viewBox="0 0 24 24"><ellipse cx="9" cy="12" rx="5" ry="7.5" transform="rotate(-30 9 12)"/><path d="M6.2 6.8c2.5 2 1.2 8.4 5.6 10.4"/><ellipse cx="17" cy="9" rx="3.4" ry="5" transform="rotate(25 17 9)"/><path d="M15.4 5.2c1.6 1.6.4 5.6 3.2 7.6"/></svg>
+      <span>Bønner</span>
+    </a>
+    <a href="#/stats" data-tab="stats">
+      <svg class="ic" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+      <span>Statistikk</span>
+    </a>
+    <a href="#/new" data-tab="new" class="fab" aria-label="Ny bønne">
+      <svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+    </a>
+    <a href="#/brew" data-tab="brew">
+      <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6M12 2v3"/></svg>
+      <span>Brygg</span>
+    </a>
+    <a href="#/settings" data-tab="settings">
+      <svg class="ic" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+      <span>Mer</span>
+    </a>
+  </nav>
+  <noscript>Kaffeloggen trenger JavaScript.</noscript>
+</body>
+</html>
