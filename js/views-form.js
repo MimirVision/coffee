@@ -1,5 +1,5 @@
 // Skjema for ny / redigert bønne
-import { state, beanById, saveBean, uniq } from './store.js';
+import { state, beanById, saveBean, uniq, defaultMethod } from './store.js';
 import { $, $$, esc, icon, starInput, radar, toast, confirmSheet, blobUrl, resizeImage, haptic, confetti, today } from './ui.js';
 import { COUNTRIES, flag, PROCESSES, VARIETIES, ROAST_LEVELS, PROFILE_AXES, FLAVORS, tagColor, METHODS } from './data.js';
 import { go, back, setCleanup } from './nav.js';
@@ -9,7 +9,7 @@ const view = () => $('#view');
 const blank = () => ({
   name: '', roaster: '', status: 'tried', rating: 0, favorite: false, buyAgain: false,
   notes: [], profile: null, country: '', region: '', farm: '', variety: '', process: '', altitude: '',
-  roastLevel: null, roastDate: '', price: '', weight: '', shop: '', methods: [], description: '', photos: [],
+  roastLevel: null, roastDate: '', price: '', weight: '', shop: '', methods: [defaultMethod()], description: '', photos: [],
 });
 
 function datalist(id, items) {

@@ -1,7 +1,7 @@
 // Bryggetimer, oppskriftskalkulator og brygg-logg-ark
-import { state, beanById, brewsFor, saveBrew, remaining, patchBean, LS } from './store.js';
+import { state, beanById, brewsFor, saveBrew, remaining, patchBean, defaultMethod } from './store.js';
 import { $, $$, esc, icon, sheet, starInput, toast, haptic, fmtNum, fmtTime, parseTime, today } from './ui.js';
-import { METHODS, methodById } from './data.js';
+import { METHODS, methodById, isEspresso } from './data.js';
 import { setCleanup, go, refresh } from './nav.js';
 
 const view = () => $('#view');
@@ -18,7 +18,7 @@ async function lock(on) {
 }
 
 const R = {
-  method: LS.get('brew.method', 'v60'),
+  method: null,
   dose: null, ratio: null, beanId: '',
 };
 
@@ -36,6 +36,10 @@ function beanOptions(sel) {
 
 export function renderBrew() {
   const q = new URLSearchParams(location.hash.split('?')[1] || '');
+  if (!R.method || (!T.running && T.acc === 0 && !q.get('brew'))) {
+    if (R.method !== defaultMethod()) R.dose = null;
+    R.method = defaultMethod();
+  }
   const m0 = methodById(R.method) || METHODS[0];
   if (R.dose == null) { R.dose = m0.dose; R.ratio = m0.ratio; }
   if (q.get('bean')) R.beanId = q.get('bean');
@@ -52,7 +56,7 @@ export function renderBrew() {
       <label class="field"><span>Bønne</span><select id="beanSel">${beanOptions(R.beanId)}</select></label>
       <div id="lastHint"></div>
       <div class="recipe-grid">
-        <div class="stepper"><span>Kaffe</span><div><button data-step="dose:-1" aria-label="Mindre kaffe">−</button><output id="dose"></output><button data-step="dose:1" aria-label="Mer kaffe">+</button></div></div>
+        <div class="stepper"><span id="doseLabel">Kaffe</span><div><button data-step="dose:-1" aria-label="Mindre kaffe">−</button><output id="dose"></output><button data-step="dose:1" aria-label="Mer kaffe">+</button></div></div>
         <div class="stepper"><span>Ratio</span><div><button data-step="ratio:-0.5" aria-label="Lavere ratio">−</button><output id="ratio"></output><button data-step="ratio:0.5" aria-label="Høyere ratio">+</button></div></div>
       </div>
       <div class="water"><span id="waterLabel">Vann</span><strong id="water"></strong></div>
@@ -79,10 +83,11 @@ export function renderBrew() {
   const paintRecipe = () => {
     const m = method();
     $('#dose').textContent = `${fmtNum(R.dose, R.dose % 1 ? 1 : 0)} g`;
-    $('#ratio').textContent = `1:${fmtNum(R.ratio, R.ratio % 1 ? 1 : 0)}`;
+    $('#ratio').textContent = `1:${fmtNum(R.ratio, isEspresso(m.id) || R.ratio % 1 ? 1 : 0)}`;
+    $('#doseLabel').textContent = isEspresso(m.id) ? 'Inn' : 'Kaffe';
     $('#water').textContent = `${water()} g`;
-    $('#waterLabel').textContent = m.id === 'espresso' ? 'Mål i koppen' : 'Vann';
-    $('#hints').innerHTML = `<span>${icon('drop')} ${m.temp}°C</span><span>${icon('settings')} ${m.grind}</span>${m.steps.length > 1 ? `<span>${icon('timer')} ~${fmtTime(m.steps[m.steps.length - 1][0])}</span>` : ''}`;
+    $('#waterLabel').textContent = isEspresso(m.id) ? 'Ut i koppen' : 'Vann';
+    $('#hints').innerHTML = `<span>${icon('drop')} ${m.temp}°C</span><span>${icon('settings')} ${m.grind}</span>${m.target ? `<span>${icon('timer')} ${m.target}</span>` : m.steps.length > 1 ? `<span>${icon('timer')} ~${fmtTime(m.steps[m.steps.length - 1][0])}</span>` : ''}`;
     const b = beanById($('#beanSel').value);
     const last = b ? brewsFor(b.id).find((r) => r.method === R.method) : null;
     const best = b ? brewsFor(b.id).filter((r) => r.method === R.method && r.rating).sort((x, y) => y.rating - x.rating)[0] : null;
@@ -121,7 +126,7 @@ export function renderBrew() {
     const next = s[i + 1];
     $('#tStep').textContent = next ? `Neste om ${fmtTime(next[0] - t)}` : t > 0 ? 'Ferdig!' : '';
     const [, title, hint] = s[i];
-    $('#stepNow').innerHTML = t > 0 || T.running ? `<strong>${title}</strong><span>${hint}</span>` : `<strong>Klar?</strong><span>${R.dose} g kaffe · ${water()} g ${method().id === 'espresso' ? 'ut' : 'vann'} · ${method().temp}°C</span>`;
+    $('#stepNow').innerHTML = t > 0 || T.running ? `<strong>${title}</strong><span>${hint}</span>` : `<strong>Klar?</strong><span>${isEspresso(method().id) ? `${fmtNum(R.dose, R.dose % 1 ? 1 : 0)} g inn → ${water()} g ut · ${method().target}` : `${R.dose} g kaffe · ${water()} g vann · ${method().temp}°C`}</span>`;
     $$('#steps li').forEach((li, j) => { li.classList.toggle('done', (t > 0 || T.running) && j < i); li.classList.toggle('now', (t > 0 || T.running) && j === i); });
     if (T.running && i !== T.lastStep) {
       if (T.lastStep !== -1) { haptic([30, 60, 30]); $('#stepNow').classList.remove('flash'); void $('#stepNow').offsetWidth; $('#stepNow').classList.add('flash'); }
@@ -139,7 +144,7 @@ export function renderBrew() {
   $('#methodRow').addEventListener('click', (e) => {
     const b = e.target.closest('[data-m]'); if (!b) return;
     if (T.running) { toast('Stopp timeren før du bytter metode'); return; }
-    R.method = b.dataset.m; LS.set('brew.method', R.method);
+    R.method = b.dataset.m;
     const m = method(); R.dose = m.dose; R.ratio = m.ratio;
     T.acc = 0; T.lastStep = -1;
     $$('#methodRow .chip').forEach((c) => c.classList.toggle('on', c === b));
@@ -149,8 +154,9 @@ export function renderBrew() {
   view().addEventListener('click', (e) => {
     const s = e.target.closest('[data-step]'); if (!s) return;
     const [k, d] = s.dataset.step.split(':');
-    if (k === 'dose') R.dose = Math.max(1, Math.round((R.dose + +d * (R.dose >= 40 ? 5 : 1)) * 10) / 10);
-    else R.ratio = Math.max(1, Math.round((R.ratio + +d) * 10) / 10);
+    const esp = isEspresso(R.method);
+    if (k === 'dose') R.dose = Math.max(1, Math.round((R.dose + +d * (esp ? 0.5 : R.dose >= 40 ? 5 : 1)) * 10) / 10);
+    else R.ratio = Math.max(1, Math.round((R.ratio + +d * (R.ratio < 4 ? 0.2 : 1)) * 10) / 10);
     haptic(3); paintRecipe(); if (!T.running) tick();
   });
   $('#tPlay').onclick = () => {
@@ -174,24 +180,33 @@ export function renderBrew() {
 export function openBrewSheet({ beanId = null, brew = null, preset = {}, onSaved } = {}) {
   const lastForBean = beanId ? brewsFor(beanId)[0] : null;
   const r = brew ? { ...brew } : {
-    beanId, date: today(), method: preset.method || lastForBean?.method || beanById(beanId)?.methods?.[0] || LS.get('brew.method', 'v60'),
-    dose: preset.dose ?? lastForBean?.dose ?? '', water: preset.water ?? lastForBean?.water ?? '',
-    grind: lastForBean?.grind || '', temp: preset.temp ?? lastForBean?.temp ?? '', time: preset.time ?? null, rating: 0, notes: '',
+    beanId, date: today(), method: preset.method || defaultMethod(),
+    dose: '', water: '', grind: '', temp: '', time: preset.time ?? null, rating: 0, notes: '',
   };
+  if (!brew) {
+    // Forhåndsutfyll fra siste brygg med samme metode, ellers metodens standard
+    const m = methodById(r.method);
+    const last = beanId ? brewsFor(beanId).find((x) => x.method === r.method) : null;
+    r.dose = preset.dose ?? last?.dose ?? m?.dose ?? '';
+    r.water = preset.water ?? last?.water ?? (m ? Math.round(m.dose * m.ratio) : '');
+    r.grind = last?.grind || '';
+    r.temp = preset.temp ?? last?.temp ?? m?.temp ?? '';
+  }
+  const esp = () => isEspresso(r.method);
   const fixedBean = !!(beanId || brew);
   sheet(`<form class="sheet-body brew-form" id="brewForm" novalidate>
     <h3>${brew ? 'Rediger brygg' : 'Logg brygg'}</h3>
     ${fixedBean ? `<p class="muted small">${esc(beanById(r.beanId)?.name || '')}</p>` : `<label class="field"><span>Bønne</span><select name="beanId" required>${beanOptions(r.beanId)}</select></label>`}
     <div class="chips-row tight" id="bMethods">${METHODS.map((m) => `<button type="button" class="chip ${m.id === r.method ? 'on' : ''}" data-m="${m.id}">${m.name}</button>`).join('')}</div>
     <div class="three">
-      <label class="field"><span>Kaffe (g)</span><input name="dose" inputmode="decimal" value="${r.dose ?? ''}" placeholder="15"></label>
-      <label class="field"><span id="waterLbl">${r.method === 'espresso' ? 'Ut (g)' : 'Vann (g)'}</span><input name="water" inputmode="decimal" value="${r.water ?? ''}" placeholder="250"></label>
+      <label class="field"><span id="doseLbl">${esp() ? 'Inn (g)' : 'Kaffe (g)'}</span><input name="dose" inputmode="decimal" value="${r.dose ?? ''}" placeholder="${esp() ? '18' : '15'}"></label>
+      <label class="field"><span id="waterLbl">${esp() ? 'Ut (g)' : 'Vann (g)'}</span><input name="water" inputmode="decimal" value="${r.water ?? ''}" placeholder="${esp() ? '36' : '250'}"></label>
       <div class="field ratio-box"><span>Ratio</span><strong id="ratioOut">–</strong></div>
     </div>
     <div class="three">
-      <label class="field"><span>Kvern</span><input name="grind" value="${esc(r.grind || '')}" placeholder="F.eks. 22 klikk"></label>
+      <label class="field"><span>Kvern</span><input name="grind" value="${esc(r.grind || '')}" placeholder="${esp() ? 'F.eks. 2,5' : 'F.eks. 22 klikk'}"></label>
       <label class="field"><span>Temp (°C)</span><input name="temp" inputmode="numeric" value="${r.temp ?? ''}" placeholder="94"></label>
-      <label class="field"><span>Tid (m:ss)</span><input name="time" inputmode="numeric" value="${r.time ? fmtTime(r.time) : ''}" placeholder="3:00"></label>
+      <label class="field"><span id="timeLbl">${esp() ? 'Tid (sek)' : 'Tid (m:ss)'}</span><input name="time" inputmode="${esp() ? 'numeric' : 'text'}" value="${r.time ? (esp() && r.time < 60 ? r.time : fmtTime(r.time)) : ''}" placeholder="${esp() ? '28' : '3:00'}"></label>
     </div>
     <label class="field"><span>Dato</span><input type="date" name="date" value="${r.date || today()}" max="${today()}"></label>
     <div class="field"><span>Hvordan ble koppen?</span><div id="bStars"></div></div>
@@ -214,7 +229,9 @@ export function openBrewSheet({ beanId = null, brew = null, preset = {}, onSaved
         const b = e.target.closest('[data-m]'); if (!b) return;
         r.method = b.dataset.m; haptic(4);
         el.querySelectorAll('#bMethods .chip').forEach((c) => c.classList.toggle('on', c === b));
-        el.querySelector('#waterLbl').textContent = r.method === 'espresso' ? 'Ut (g)' : 'Vann (g)';
+        el.querySelector('#waterLbl').textContent = esp() ? 'Ut (g)' : 'Vann (g)';
+        el.querySelector('#doseLbl').textContent = esp() ? 'Inn (g)' : 'Kaffe (g)';
+        el.querySelector('#timeLbl').textContent = esp() ? 'Tid (sek)' : 'Tid (m:ss)';
       });
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -226,7 +243,6 @@ export function openBrewSheet({ beanId = null, brew = null, preset = {}, onSaved
           date: form.date.value || today(), rating: st.get(), notes: form.notes.value.trim(),
         };
         const saved = await saveBrew(out);
-        LS.set('brew.method', out.method);
         haptic([10, 30, 10]);
         api.close();
         const b = beanById(bid);

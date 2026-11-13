@@ -6,8 +6,26 @@ export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
 
+let hapticLabel = null;
+function iosTick() {
+  if (!hapticLabel) {
+    hapticLabel = document.createElement('label');
+    hapticLabel.setAttribute('aria-hidden', 'true');
+    hapticLabel.style.cssText = 'position:fixed;left:-100px;top:0;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none';
+    const input = document.createElement('input');
+    input.type = 'checkbox'; input.setAttribute('switch', ''); input.tabIndex = -1;
+    hapticLabel.appendChild(input);
+    document.body.appendChild(hapticLabel);
+  }
+  hapticLabel.click();
+}
 export function haptic(pattern = 8) {
-  try { navigator.vibrate?.(pattern); } catch {}
+  try {
+    if (navigator.vibrate) { navigator.vibrate(pattern); return; }
+    // iOS har ikke vibrate(): bruk switch-trikset, ett tikk per puls
+    const pulses = Array.isArray(pattern) ? Math.ceil(pattern.length / 2) : 1;
+    for (let i = 0; i < pulses; i++) setTimeout(iosTick, i * 90);
+  } catch {}
 }
 
 // ---------- Ikoner (inline SVG, stroke-basert) ----------

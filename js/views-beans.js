@@ -179,11 +179,12 @@ function brewItem(r, best) {
   return `<div class="brew-item ${best ? 'best' : ''}" data-brew="${r.id}">
     <div class="brew-top"><strong>${esc(methodName(r.method) || 'Brygg')}</strong>${best ? '<span class="pill pill-gold">Beste oppskrift</span>' : ''}<span class="muted brew-date">${relDate(r.date)}</span></div>
     <div class="brew-specs">
+      ${r.method === 'espresso' && r.dose && r.water ? `<span>${fmtNum(r.dose, r.dose % 1 ? 1 : 0)} g → ${fmtNum(r.water, r.water % 1 ? 1 : 0)} g</span>` : `
       ${r.dose ? `<span>${fmtNum(r.dose, r.dose % 1 ? 1 : 0)} g</span>` : ''}
-      ${r.water ? `<span>${fmtNum(r.water, 0)} ${r.method === 'espresso' ? 'g ut' : 'g vann'}</span>` : ''}
+      ${r.water ? `<span>${fmtNum(r.water, 0)} g vann</span>` : ''}`}
       ${ratio ? `<span>${ratio}</span>` : ''}
       ${r.temp ? `<span>${r.temp}°C</span>` : ''}
-      ${r.time ? `<span>${fmtTime(r.time)}</span>` : ''}
+      ${r.time ? `<span>${r.time < 60 ? `${r.time} s` : fmtTime(r.time)}</span>` : ''}
       ${r.grind ? `<span>Kvern: ${esc(r.grind)}</span>` : ''}
     </div>
     ${r.rating ? `<div class="brew-rating">${stars(r.rating)}</div>` : ''}

@@ -9,6 +9,8 @@ export const LS = {
   set(k, v) { try { localStorage.setItem('kl:' + k, JSON.stringify(v)); } catch {} },
 };
 
+export const defaultMethod = () => LS.get('defaultMethod', 'espresso');
+
 export async function load() {
   const [beans, brews] = await Promise.all([db.all('beans'), db.all('brews')]);
   state.beans = beans; state.brews = brews;

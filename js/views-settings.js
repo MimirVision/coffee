@@ -2,12 +2,12 @@
 import { state, LS, clearAll } from './store.js';
 import { db } from './db.js';
 import { $, esc, icon, toast, confirmSheet, blobToDataURL, dataURLToBlob, haptic } from './ui.js';
-import { methodName, ROAST_LEVELS, STATUSES } from './data.js';
+import { methodName, ROAST_LEVELS, STATUSES, METHODS } from './data.js';
 import { refresh } from './nav.js';
 import { loadSamples } from './samples.js';
 
 const view = () => $('#view');
-export const VERSION = '1.0.0';
+export const VERSION = '1.1.0';
 
 let installPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installPrompt = e; });
@@ -89,6 +89,11 @@ export async function renderSettings() {
       <div class="segmented" id="theme">${[['auto', 'Auto'], ['light', 'Lys'], ['dark', 'Mørk']].map(([k, l]) => `<button data-v="${k}" class="${theme === k ? 'on' : ''}">${l}</button>`).join('')}</div>
     </section>
 
+    <section class="section"><h2>Brygging</h2>
+      <div class="list"><label class="list-item select-item">${icon('cup')}<div><strong>Standard bryggemetode</strong><span>Brukes i Brygg-fanen og når du logger brygg</span></div>
+        <select id="defMethod">${METHODS.map((m) => `<option value="${m.id}" ${m.id === LS.get('defaultMethod', 'espresso') ? 'selected' : ''}>${m.name}</option>`).join('')}</select></label></div>
+    </section>
+
     <section class="section"><h2>Sikkerhetskopi</h2>
       <p class="muted small">Alt lagres kun lokalt på denne enheten. Ta en sikkerhetskopi innimellom – særlig før du bytter telefon.${last ? ` Sist: <b>${new Date(last).toLocaleDateString('nb-NO')}</b>.` : ' <b>Du har ikke tatt noen ennå.</b>'}</p>
       <div class="list">
@@ -117,6 +122,7 @@ export async function renderSettings() {
     LS.set('theme', b.dataset.v); applyTheme(b.dataset.v); haptic(4);
     [...$('#theme').children].forEach((c) => c.classList.toggle('on', c === b));
   });
+  $('#defMethod').addEventListener('change', (e) => { LS.set('defaultMethod', e.target.value); haptic(4); toast(`${methodName(e.target.value)} er nå standard`); });
   $('#installBtn')?.addEventListener('click', async () => { installPrompt.prompt(); await installPrompt.userChoice; installPrompt = null; refresh(); });
   $('#exp').onclick = () => (state.beans.length ? exportJSON() : toast('Ingenting å eksportere ennå'));
   $('#csv').onclick = () => (state.beans.length ? exportCSV() : toast('Ingenting å eksportere ennå'));

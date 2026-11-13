@@ -66,6 +66,8 @@ export const tagCategory = (t) => FLAVORS.find((g) => g.tags.some((x) => x.toLow
 
 // Bryggemetoder med standardoppskrift og trinn for timeren (sekunder)
 export const METHODS = [
+  { id: 'espresso', name: 'Espresso', ratio: 2, temp: 93, grind: 'Fin', dose: 18, target: '25–32 s',
+    steps: [[0, 'Preinfusjon', 'Vent på de første dråpene'], [7, 'Ekstraksjon', 'Jevn, honningaktig flyt'], [22, 'Følg med', 'Se etter blonding – nærmer seg målvekt'], [28, 'Ferdig', 'Stopp ved målvekt ☕']] },
   { id: 'v60', name: 'V60', ratio: 16, temp: 94, grind: 'Medium-fin', dose: 15,
     steps: [[0, 'Bloom', 'Hell 2–3× dosen vann, rør forsiktig'], [45, 'Første helling', 'Hell sakte til 60 % av vannet'], [75, 'Andre helling', 'Hell resten i sirkler'], [105, 'Drawdown', 'Gi den en forsiktig swirl'], [180, 'Ferdig', 'Nyt koppen ☕']] },
   { id: 'chemex', name: 'Chemex', ratio: 16, temp: 94, grind: 'Medium-grov', dose: 30,
@@ -78,13 +80,12 @@ export const METHODS = [
     steps: [[0, 'Hell', 'Hell alt vannet'], [240, 'Bryt skorpen', 'Rør og skum av toppen'], [300, 'Vent', 'La partiklene synke'], [480, 'Press', 'Press stempelet ned forsiktig'], [500, 'Ferdig', 'Nyt koppen ☕']] },
   { id: 'clever', name: 'Clever Dripper', ratio: 16, temp: 94, grind: 'Medium', dose: 18,
     steps: [[0, 'Hell', 'Hell alt vannet'], [30, 'Rør', 'Rør forsiktig'], [120, 'Slipp', 'Sett på koppen'], [180, 'Ferdig', 'Nyt koppen ☕']] },
-  { id: 'espresso', name: 'Espresso', ratio: 2, temp: 93, grind: 'Fin', dose: 18,
-    steps: [[0, 'Preinfusjon', 'Lavt trykk'], [6, 'Ekstraksjon', 'Følg flyten'], [28, 'Ferdig', 'Stopp ved målvekt']] },
   { id: 'moka', name: 'Moka', ratio: 8, temp: 70, grind: 'Fin-medium', dose: 15,
     steps: [[0, 'Varm', 'Middels varme, lokket åpent'], [180, 'Flyt', 'Følg med på flyten'], [240, 'Ferdig', 'Kjøl ned bunnen']] },
   { id: 'batch', name: 'Filtermaskin', ratio: 16, temp: 94, grind: 'Medium', dose: 60, steps: [[0, 'Brygg', 'La maskinen jobbe'], [300, 'Ferdig', 'Nyt koppen ☕']] },
   { id: 'coldbrew', name: 'Cold brew', ratio: 8, temp: 4, grind: 'Grov', dose: 100, steps: [[0, 'Trekk', '12–18 timer i kjøleskapet']] },
 ];
+export const isEspresso = (id) => id === 'espresso';
 export const methodById = (id) => METHODS.find((m) => m.id === id) || null;
 export const methodName = (id) => methodById(id)?.name || id || '';
 
