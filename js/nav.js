@@ -38,6 +38,7 @@ function render(dir = 'forward', keepScroll = false) {
     r.fn(...args);
     setupNavbar(hash);
     document.querySelectorAll('.tabbar [data-tab]').forEach((a) => a.classList.toggle('active', a.dataset.tab === r.tab));
+    moveIndicator(r.tab);
     document.body.dataset.tab = r.tab || '';
     const y = keepScroll ? scrolls[hash] ?? 0 : dir === 'back' ? scrolls[hash] ?? 0 : 0;
     window.scrollTo(0, y);
@@ -110,6 +111,15 @@ function setupSwipeBack() {
   });
 }
 let skipTransition = false;
+
+function moveIndicator(tab) {
+  const ind = document.querySelector('.tab-ind');
+  const a = document.querySelector(`.tabbar [data-tab="${tab}"]`);
+  if (!ind) return;
+  if (!a || a.classList.contains('fab')) { ind.style.opacity = '0'; return; }
+  ind.style.transform = `translateX(${a.offsetLeft}px)`;
+  ind.style.opacity = '1';
+}
 
 export function start() {
   window.addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(onScroll); } }, { passive: true });

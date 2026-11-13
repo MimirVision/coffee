@@ -1,5 +1,5 @@
 // Service worker: app-skallet caches, så appen fungerer helt offline
-const CACHE = 'kaffeloggen-v2';
+const CACHE = 'kaffeloggen-v3';
 const ASSETS = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'js/app.js', 'js/db.js', 'js/data.js', 'js/ui.js', 'js/store.js', 'js/nav.js', 'js/samples.js',
