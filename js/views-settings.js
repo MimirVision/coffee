@@ -7,7 +7,7 @@ import { refresh } from './nav.js';
 import { loadSamples } from './samples.js';
 
 const view = () => $('#view');
-export const VERSION = '1.1.0';
+export const VERSION = '1.2.0';
 
 let installPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installPrompt = e; });
@@ -19,21 +19,22 @@ export function applyTheme(t) {
   document.querySelector('meta[name=theme-color]')?.setAttribute('content', dark ? '#16110e' : '#f6efe6');
 }
 
-const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+export const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+export const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone;
 
 async function download(blob, name) {
   const file = new File([blob], name, { type: blob.type });
   if (matchMedia('(pointer: coarse)').matches && navigator.canShare?.({ files: [file] })) {
-    try { await navigator.share({ files: [file], title: name }); return; } catch (e) { if (e.name === 'AbortError') return; }
+    try { await navigator.share({ files: [file], title: name }); return true; } catch (e) { if (e.name === 'AbortError') return false; }
   }
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob); a.download = name;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  return true;
 }
 
-async function exportJSON() {
+export async function exportJSON() {
   toast('Pakker sikkerhetskopi…');
   const beans = await Promise.all(state.beans.map(async (b) => ({
     ...b,
@@ -42,8 +43,8 @@ async function exportJSON() {
   })));
   const data = { app: 'kaffeloggen', version: 1, exportedAt: new Date().toISOString(), beans, brews: state.brews };
   const stamp = new Date().toISOString().slice(0, 10);
-  await download(new Blob([JSON.stringify(data)], { type: 'application/json' }), `kaffeloggen-${stamp}.json`);
-  LS.set('lastBackup', Date.now());
+  const ok = await download(new Blob([JSON.stringify(data)], { type: 'application/json' }), `kaffeloggen-${stamp}.json`);
+  if (ok) { LS.set('lastBackup', Date.now()); toast('Sikkerhetskopi lagret ✓'); }
   refresh();
 }
 
@@ -95,7 +96,7 @@ export async function renderSettings() {
     </section>
 
     <section class="section"><h2>Sikkerhetskopi</h2>
-      <p class="muted small">Alt lagres kun lokalt på denne enheten. Ta en sikkerhetskopi innimellom – særlig før du bytter telefon.${last ? ` Sist: <b>${new Date(last).toLocaleDateString('nb-NO')}</b>.` : ' <b>Du har ikke tatt noen ennå.</b>'}</p>
+      <p class="muted small">Alt lagres kun lokalt på denne enheten. Ta en sikkerhetskopi innimellom – særlig før du bytter telefon.${isIOS() ? ' På iPhone har Safari og appen på hjemskjermen <b>hver sin lagring</b>, og fjerner du ikonet fra hjemskjermen, slettes dataene.' : ''}${last ? ` Sist: <b>${new Date(last).toLocaleDateString('nb-NO')}</b>.` : ' <b>Du har ikke tatt noen ennå.</b>'}</p>
       <div class="list">
         <button class="list-item" id="exp">${icon('download')}<div><strong>Eksporter backup</strong><span>JSON med alle bilder og brygg</span></div></button>
         <button class="list-item" id="imp">${icon('upload')}<div><strong>Importer backup</strong><span>Gjenopprett fra en JSON-fil</span></div></button>

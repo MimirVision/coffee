@@ -5,6 +5,7 @@ import { flag, freshness, STATUSES, ROAST_LEVELS, PROFILE_AXES, tagColor, method
 import { go, back, refresh, setCleanup } from './nav.js';
 import { openBrewSheet } from './views-brew.js';
 import { loadSamples } from './samples.js';
+import { exportJSON, isIOS, standalone } from './views-settings.js';
 
 const view = () => $('#view');
 const ui = { filter: LS.get('filter', 'all'), sort: LS.get('sort', 'newest'), q: '' };
@@ -110,6 +111,21 @@ function stashStrip() {
   </section>`;
 }
 
+// Varsler om lagring: Safari vs hjemskjerm-app, og påminnelse om sikkerhetskopi
+function storageNotice() {
+  if (isIOS() && !standalone()) {
+    return `<div class="notice">${icon('info')}<div><strong>Du bruker Kaffeloggen i Safari</strong><span>Appen på hjemskjermen har sin egen, separate lagring. Bruk helst appen – bønner lagt inn her vises ikke der.</span></div></div>`;
+  }
+  const last = LS.get('lastBackup', 0);
+  const snoozed = LS.get('backupSnooze', 0);
+  const week = 7 * 864e5;
+  if (state.beans.length >= 3 && Date.now() - last > week && Date.now() - snoozed > 3 * 864e5) {
+    return `<div class="notice">${icon('download')}<div><strong>${last ? 'Over en uke siden forrige sikkerhetskopi' : 'Ta en sikkerhetskopi'}</strong><span>Bønnene lagres bare på denne telefonen. Lagre en kopi i Filer eller iCloud.</span>
+      <div class="btn-row"><button class="btn btn-primary btn-sm" id="backupNow">Ta backup nå</button><button class="btn btn-ghost btn-sm" id="backupLater">Senere</button></div></div></div>`;
+  }
+  return '';
+}
+
 export function renderHome() {
   const all = state.beans;
   if (!all.length) {
@@ -126,6 +142,7 @@ export function renderHome() {
     <header class="page-head">
       <div><p class="eyebrow">${greeting()}</p><h1 class="title">Kaffeloggen</h1></div>
     </header>
+    ${storageNotice()}
     <div class="summary">
       <div><strong>${tasted.length}</strong><span>smakt</span></div>
       <div><strong>${countries}</strong><span>${countries === 1 ? 'land' : 'land'}</span></div>
@@ -147,6 +164,8 @@ export function renderHome() {
   };
   paint();
 
+  $('#backupNow')?.addEventListener('click', () => exportJSON());
+  $('#backupLater')?.addEventListener('click', () => { LS.set('backupSnooze', Date.now()); refresh(); });
   $('#q').addEventListener('input', (e) => { ui.q = e.target.value.trim(); paint(); });
   view().addEventListener('click', async (e) => {
     const fb = e.target.closest('[data-filter]');

@@ -22,6 +22,7 @@ onRoute(/^#\/settings$/, renderSettings, 'settings');
 (async () => {
   try { await load(); } catch (e) { console.error(e); toast('Kunne ikke åpne lagringen på denne enheten'); }
   start();
+  try { if (navigator.storage?.persist && !(await navigator.storage.persisted())) navigator.storage.persist(); } catch {}
   document.body.classList.add('ready');
 })();
 

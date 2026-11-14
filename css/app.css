@@ -626,3 +626,10 @@ button.list-item:active { background: var(--surface-2); }
 .select-item { cursor: pointer; }
 .select-item div { flex: 1; min-width: 0; }
 .select-item select { width: auto !important; height: 36px !important; flex: none; background-color: var(--surface-2); border: 0; font-weight: 600; }
+
+.notice { display: flex; gap: 12px; align-items: flex-start; background: var(--accent-soft); border-radius: var(--r); padding: 14px 16px; margin-bottom: 14px; }
+.notice > .ic { color: var(--accent); margin-top: 1px; }
+.notice > div { display: flex; flex-direction: column; gap: 2px; font-size: .9rem; }
+.notice span { color: var(--text-2); }
+.notice .btn-row { margin-top: 10px; flex-direction: row; gap: 8px; }
+.notice .btn-row .btn { flex: none; }
