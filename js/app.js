@@ -7,6 +7,8 @@ import { renderBrew } from './views-brew.js';
 import { renderStats } from './views-stats.js';
 import { renderSettings, applyTheme } from './views-settings.js';
 import { toast } from './ui.js';
+import { syncConfig, syncNow, onSyncStatus } from './sync.js';
+import { refresh } from './nav.js';
 
 applyTheme(LS.get('theme', 'auto'));
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme(LS.get('theme', 'auto')));
@@ -22,6 +24,14 @@ onRoute(/^#\/settings$/, renderSettings, 'settings');
 (async () => {
   try { await load(); } catch (e) { console.error(e); toast('Kunne ikke åpne lagringen på denne enheten'); }
   start();
+  // Hent endringer fra skyen; tegn siden på nytt hvis noe kom inn (men ikke midt i et skjema)
+  let warned = false;
+  onSyncStatus((s, extra) => {
+    if (s.state === 'ok' && extra.pulled && !document.body.classList.contains('form-open') && !document.querySelector('.sheet-wrap')) refresh();
+    if (s.state === 'error' && !warned) { warned = true; toast(`Skylagring: ${s.error}`, { duration: 6000 }); }
+    if (s.state === 'ok') warned = false;
+  });
+  if (syncConfig()) syncNow();
   try { if (navigator.storage?.persist && !(await navigator.storage.persisted())) navigator.storage.persist(); } catch {}
   document.body.classList.add('ready');
 })();

@@ -5,7 +5,8 @@ import { flag, freshness, STATUSES, ROAST_LEVELS, PROFILE_AXES, tagColor, method
 import { go, back, refresh, setCleanup } from './nav.js';
 import { openBrewSheet } from './views-brew.js';
 import { loadSamples } from './samples.js';
-import { exportJSON, isIOS, standalone } from './views-settings.js';
+import { isIOS, standalone, syncLine } from './views-settings.js';
+import { syncConfig, onSyncStatus } from './sync.js';
 
 const view = () => $('#view');
 const ui = { filter: LS.get('filter', 'all'), sort: LS.get('sort', 'newest'), q: '' };
@@ -113,15 +114,13 @@ function stashStrip() {
 
 // Varsler om lagring: Safari vs hjemskjerm-app, og påminnelse om sikkerhetskopi
 function storageNotice() {
-  if (isIOS() && !standalone()) {
+  if (isIOS() && !standalone() && !syncConfig()) {
     return `<div class="notice">${icon('info')}<div><strong>Du bruker Kaffeloggen i Safari</strong><span>Appen på hjemskjermen har sin egen, separate lagring. Bruk helst appen – bønner lagt inn her vises ikke der.</span></div></div>`;
   }
-  const last = LS.get('lastBackup', 0);
   const snoozed = LS.get('backupSnooze', 0);
-  const week = 7 * 864e5;
-  if (state.beans.length >= 3 && Date.now() - last > week && Date.now() - snoozed > 3 * 864e5) {
-    return `<div class="notice">${icon('download')}<div><strong>${last ? 'Over en uke siden forrige sikkerhetskopi' : 'Ta en sikkerhetskopi'}</strong><span>Bønnene lagres bare på denne telefonen. Lagre en kopi i Filer eller iCloud.</span>
-      <div class="btn-row"><button class="btn btn-primary btn-sm" id="backupNow">Ta backup nå</button><button class="btn btn-ghost btn-sm" id="backupLater">Senere</button></div></div></div>`;
+  if (!syncConfig() && state.beans.length >= 1 && Date.now() - snoozed > 3 * 864e5) {
+    return `<div class="notice">${icon('cloud')}<div><strong>Sikre bønnene dine</strong><span>Nå ligger alt bare på denne telefonen. Slå på skylagring, så lagres alt fortløpende og går aldri tapt.</span>
+      <div class="btn-row"><a class="btn btn-primary btn-sm" href="#/settings">Slå på</a><button class="btn btn-ghost btn-sm" id="backupLater">Senere</button></div></div></div>`;
   }
   return '';
 }
@@ -141,6 +140,7 @@ export function renderHome() {
   view().innerHTML = `
     <header class="page-head">
       <div><p class="eyebrow">${greeting()}</p><h1 class="title">Kaffeloggen</h1></div>
+      ${syncConfig() ? `<a class="sync-pill ${syncLine()[0]}" id="syncPill" href="#/settings" aria-label="Skylagring">${icon('cloud')}</a>` : ''}
     </header>
     ${storageNotice()}
     <div class="summary">
@@ -164,7 +164,7 @@ export function renderHome() {
   };
   paint();
 
-  $('#backupNow')?.addEventListener('click', () => exportJSON());
+  setCleanup(onSyncStatus((s) => { const el = $('#syncPill'); if (el) el.className = `sync-pill ${syncLine(s)[0]}`; }));
   $('#backupLater')?.addEventListener('click', () => { LS.set('backupSnooze', Date.now()); refresh(); });
   $('#q').addEventListener('input', (e) => { ui.q = e.target.value.trim(); paint(); });
   view().addEventListener('click', async (e) => {

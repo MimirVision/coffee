@@ -1,9 +1,9 @@
 // Service worker: app-skallet caches, så appen fungerer helt offline
-const CACHE = 'kaffeloggen-v4';
+const CACHE = 'kaffeloggen-v5';
 const ASSETS = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'js/app.js', 'js/db.js', 'js/data.js', 'js/ui.js', 'js/store.js', 'js/nav.js', 'js/samples.js',
-  'js/views-beans.js', 'js/views-form.js', 'js/views-brew.js', 'js/views-stats.js', 'js/views-settings.js',
+  'js/sync.js', 'js/views-beans.js', 'js/views-form.js', 'js/views-brew.js', 'js/views-stats.js', 'js/views-settings.js',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
 ];
 

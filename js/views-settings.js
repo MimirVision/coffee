@@ -1,13 +1,14 @@
 // Innstillinger: tema, sikkerhetskopi, lagring, installasjon
-import { state, LS, clearAll } from './store.js';
+import { state, LS, clearAll, markChanged } from './store.js';
+import { syncConfig, status as syncStatus, onSyncStatus, connect, disconnect, syncNow } from './sync.js';
 import { db } from './db.js';
 import { $, esc, icon, toast, confirmSheet, blobToDataURL, dataURLToBlob, haptic } from './ui.js';
 import { methodName, ROAST_LEVELS, STATUSES, METHODS } from './data.js';
-import { refresh } from './nav.js';
+import { refresh, setCleanup } from './nav.js';
 import { loadSamples } from './samples.js';
 
 const view = () => $('#view');
-export const VERSION = '1.2.0';
+export const VERSION = '1.3.0';
 
 let installPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installPrompt = e; });
@@ -69,9 +70,48 @@ async function importJSON(file) {
   await db.putMany('beans', beans);
   if (data.brews?.length) await db.putMany('brews', data.brews);
   state.beans = await db.all('beans'); state.brews = await db.all('brews');
+  markChanged();
   haptic([10, 30, 10]);
   toast(`Importerte ${beans.length} bønner ☕`);
   refresh();
+}
+
+export function syncLine(s = syncStatus) {
+  const time = s.at ? new Date(s.at).toLocaleString('nb-NO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+  return {
+    off: ['off', 'Av'],
+    idle: ['ok', time ? `Lagret i skyen ${time}` : 'Tilkoblet'],
+    ok: ['ok', `Alt er lagret i skyen · ${time}`],
+    pending: ['busy', 'Lagrer straks…'],
+    syncing: ['busy', 'Synkroniserer…'],
+    offline: ['warn', 'Ingen nett – lagres når du er på nett igjen'],
+    error: ['warn', s.error || 'Noe gikk galt'],
+  }[s.state] || ['ok', ''];
+}
+
+function cloudSection() {
+  const cfg = syncConfig();
+  if (cfg) {
+    const [cls, txt] = syncLine();
+    return `<section class="section"><h2>Skylagring</h2>
+      <div class="list">
+        <div class="list-item static">${icon('cloud')}<div><strong>${esc(cfg.repo)}</strong><span class="sync-line ${cls}" id="syncLine">${esc(txt)}</span></div></div>
+        <button class="list-item" id="syncNow">${icon('repeat')}<div><strong>Synkroniser nå</strong><span>Skjer ellers automatisk ved hver endring</span></div></button>
+        <button class="list-item danger" id="syncOff">${icon('close')}<div><strong>Koble fra</strong><span>Dataene blir liggende både her og i repoet</span></div></button>
+      </div></section>`;
+  }
+  return `<section class="section"><h2>Skylagring</h2>
+    <div class="form-card cloud-setup">
+      <p class="small">Slå på, så lagres alt – bønner, bilder og brygg – fortløpende i et <b>privat GitHub-repo</b>. Sletter du appen eller bytter telefon, kobler du bare til igjen og får alt tilbake.</p>
+      <ol class="small setup-steps">
+        <li><a class="link" href="https://github.com/new?name=coffee-data&visibility=private" target="_blank" rel="noopener">Lag et privat repo</a> som heter f.eks. <b>coffee-data</b>.</li>
+        <li><a class="link" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Lag en nøkkel</a> (fine-grained token): velg <i>Only select repositories</i> → coffee-data, og gi <b>Contents: Read and write</b>. Velg lengst mulig utløpstid.</li>
+        <li>Lim inn under. Ta vare på nøkkelen i passordbehandleren din – den trengs hvis du installerer appen på nytt.</li>
+      </ol>
+      <label class="field"><span>Repo</span><input id="syncRepo" placeholder="MimirVision/coffee-data" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(LS.get('syncRepoDraft', ''))}"></label>
+      <label class="field"><span>Nøkkel</span><input id="syncToken" type="password" placeholder="github_pat_…" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+      <button class="btn btn-primary btn-block" id="syncConnect">${icon('cloud')} Koble til og synkroniser</button>
+    </div></section>`;
 }
 
 export async function renderSettings() {
@@ -86,6 +126,8 @@ export async function renderSettings() {
       ${installPrompt ? '<button class="btn btn-primary btn-sm" id="installBtn">Installer</button>' : ''}</div>
     </section>` : ''}
 
+    ${cloudSection()}
+
     <section class="section"><h2>Utseende</h2>
       <div class="segmented" id="theme">${[['auto', 'Auto'], ['light', 'Lys'], ['dark', 'Mørk']].map(([k, l]) => `<button data-v="${k}" class="${theme === k ? 'on' : ''}">${l}</button>`).join('')}</div>
     </section>
@@ -96,7 +138,7 @@ export async function renderSettings() {
     </section>
 
     <section class="section"><h2>Sikkerhetskopi</h2>
-      <p class="muted small">Alt lagres kun lokalt på denne enheten. Ta en sikkerhetskopi innimellom – særlig før du bytter telefon.${isIOS() ? ' På iPhone har Safari og appen på hjemskjermen <b>hver sin lagring</b>, og fjerner du ikonet fra hjemskjermen, slettes dataene.' : ''}${last ? ` Sist: <b>${new Date(last).toLocaleDateString('nb-NO')}</b>.` : ' <b>Du har ikke tatt noen ennå.</b>'}</p>
+      <p class="muted small">${syncConfig() ? 'Skylagring er på, så dette trengs egentlig ikke – men en ekstra kopi skader aldri.' : 'Uten skylagring ligger alt bare på denne enheten. Ta en sikkerhetskopi innimellom – særlig før du bytter telefon.'}${isIOS() && !syncConfig() ? ' På iPhone har Safari og appen på hjemskjermen <b>hver sin lagring</b>, og fjerner du ikonet fra hjemskjermen, slettes dataene.' : ''}${last ? ` Sist: <b>${new Date(last).toLocaleDateString('nb-NO')}</b>.` : ' <b>Du har ikke tatt noen ennå.</b>'}</p>
       <div class="list">
         <button class="list-item" id="exp">${icon('download')}<div><strong>Eksporter backup</strong><span>JSON med alle bilder og brygg</span></div></button>
         <button class="list-item" id="imp">${icon('upload')}<div><strong>Importer backup</strong><span>Gjenopprett fra en JSON-fil</span></div></button>
@@ -123,6 +165,31 @@ export async function renderSettings() {
     LS.set('theme', b.dataset.v); applyTheme(b.dataset.v); haptic(4);
     [...$('#theme').children].forEach((c) => c.classList.toggle('on', c === b));
   });
+  $('#syncConnect')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget; const repo = $('#syncRepo').value;
+    LS.set('syncRepoDraft', repo.trim());
+    btn.disabled = true; btn.textContent = 'Kobler til…';
+    try {
+      const res = await connect(repo, $('#syncToken').value);
+      haptic([10, 30, 10]);
+      if (syncStatus.state === 'error') toast(syncStatus.error);
+      else toast(res?.pulled ? 'Tilkoblet – hentet bønnene dine fra skyen ☁️' : 'Tilkoblet – alt lagres nå i skyen ☁️');
+      refresh();
+    } catch (err) {
+      toast(err.message || 'Kunne ikke koble til'); haptic([20, 40, 20]);
+      btn.disabled = false; btn.innerHTML = `${icon('cloud')} Koble til og synkroniser`;
+    }
+  });
+  $('#syncNow')?.addEventListener('click', async () => { haptic(6); await syncNow(); if (syncStatus.state === 'error') toast(syncStatus.error); });
+  $('#syncOff')?.addEventListener('click', async () => {
+    if (!(await confirmSheet({ title: 'Koble fra skylagring?', text: 'Nye endringer lagres da bare på denne telefonen. Det som allerede ligger i repoet, blir liggende.', ok: 'Koble fra', danger: true }))) return;
+    disconnect(); refresh();
+  });
+  setCleanup(onSyncStatus((s) => {
+    const el = $('#syncLine'); if (!el) return;
+    const [cls, txt] = syncLine(s); el.className = `sync-line ${cls}`; el.textContent = txt;
+  }));
+
   $('#defMethod').addEventListener('change', (e) => { LS.set('defaultMethod', e.target.value); haptic(4); toast(`${methodName(e.target.value)} er nå standard`); });
   $('#installBtn')?.addEventListener('click', async () => { installPrompt.prompt(); await installPrompt.userChoice; installPrompt = null; refresh(); });
   $('#exp').onclick = () => (state.beans.length ? exportJSON() : toast('Ingenting å eksportere ennå'));
@@ -131,7 +198,7 @@ export async function renderSettings() {
   $('#impFile').onchange = (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) importJSON(f); };
   $('#samples').onclick = async () => { await loadSamples(); toast('Eksempeldata lagt til'); location.hash = '#/'; };
   $('#wipe').onclick = async () => {
-    if (!(await confirmSheet({ title: 'Slette alt?', text: `${state.beans.length} bønner og ${state.brews.length} brygg slettes permanent. Dette kan ikke angres.`, ok: 'Slett alt', danger: true }))) return;
+    if (!(await confirmSheet({ title: 'Slette alt?', text: `${state.beans.length} bønner og ${state.brews.length} brygg slettes permanent${syncConfig() ? ', også i skylagringen' : ''}. Dette kan ikke angres.`, ok: 'Slett alt', danger: true }))) return;
     await clearAll(); toast('Alt er slettet'); refresh();
   };
 

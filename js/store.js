@@ -9,6 +9,18 @@ export const LS = {
   set(k, v) { try { localStorage.setItem('kl:' + k, JSON.stringify(v)); } catch {} },
 };
 
+// Endringslyttere (brukes av skysynk) og «gravsteiner» for slettede poster,
+// så slettinger også synkes og ikke dukker opp igjen fra skyen.
+const changeListeners = [];
+export const onLocalChange = (fn) => changeListeners.push(fn);
+export const markChanged = () => changeListeners.forEach((f) => { try { f(); } catch {} });
+export async function setTombs(ids, remove = false) {
+  const t = (await db.getMeta('tombs')) || {};
+  const now = Date.now();
+  ids.forEach((id) => { if (remove) delete t[id]; else t[id] = now; });
+  await db.setMeta('tombs', t);
+}
+
 export const defaultMethod = () => LS.get('defaultMethod', 'espresso');
 
 export async function load() {
@@ -36,6 +48,7 @@ export async function saveBean(bean) {
   await db.put('beans', bean);
   if (prev) Object.assign(prev, bean); else state.beans.push(bean);
   if (state.beans.length === 1) navigator.storage?.persist?.();
+  markChanged();
   return bean;
 }
 
@@ -43,6 +56,7 @@ export async function patchBean(id, patch) {
   const b = beanById(id);
   Object.assign(b, patch, { updatedAt: Date.now() });
   await db.put('beans', b);
+  markChanged();
   return b;
 }
 
@@ -53,17 +67,25 @@ export async function deleteBean(id) {
   state.brews = state.brews.filter((r) => r.beanId !== id);
   await db.del('beans', id);
   await db.delMany('brews', brews.map((r) => r.id));
-  return async () => { // angre
+  await setTombs([id, ...brews.map((r) => r.id)]);
+  markChanged();
+  return async () => { // angre: nyere tidsstempel enn gravsteinen
+    const now = Date.now();
+    bean.updatedAt = now; brews.forEach((r) => (r.updatedAt = now));
     state.beans.push(bean); state.brews.push(...brews);
     await db.put('beans', bean); await db.putMany('brews', brews);
+    await setTombs([id, ...brews.map((r) => r.id)], true);
+    markChanged();
   };
 }
 
 export async function saveBrew(brew) {
   if (!brew.id) { brew.id = uid(); brew.createdAt = Date.now(); }
+  brew.updatedAt = Date.now();
   const i = state.brews.findIndex((r) => r.id === brew.id);
   if (i >= 0) state.brews[i] = brew; else state.brews.push(brew);
   await db.put('brews', brew);
+  markChanged();
   return brew;
 }
 
@@ -71,12 +93,20 @@ export async function deleteBrew(id) {
   const brew = state.brews.find((r) => r.id === id);
   state.brews = state.brews.filter((r) => r.id !== id);
   await db.del('brews', id);
-  return async () => { state.brews.push(brew); await db.put('brews', brew); };
+  await setTombs([id]);
+  markChanged();
+  return async () => {
+    brew.updatedAt = Date.now();
+    state.brews.push(brew); await db.put('brews', brew);
+    await setTombs([id], true); markChanged();
+  };
 }
 
 export async function clearAll() {
+  await setTombs([...state.beans.map((b) => b.id), ...state.brews.map((r) => r.id)]);
   await db.clear('beans'); await db.clear('brews');
   state.beans = []; state.brews = [];
+  markChanged();
 }
 
 export const uniq = (key) => [...new Set(state.beans.map((b) => b[key]).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'nb'));
